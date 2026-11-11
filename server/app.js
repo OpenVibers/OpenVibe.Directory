@@ -1,0 +1,31 @@
+'use strict';
+const express=require('express');
+const path=require('node:path');
+const {createStore,kinds}=require('./sources');
+const v=require('./views');
+function createApp({store=createStore()}={}){
+  const app=express();app.disable('x-powered-by');
+  app.use((_q,r,next)=>{r.set('X-Content-Type-Options','nosniff');r.set('Referrer-Policy','strict-origin-when-cross-origin');next();});
+  app.use('/shared',require('openvibe-shared/serve').handler());
+  app.get('/api/health',(_q,r)=>r.json({status:'ok',service:'directory'}));
+  app.get('/api/ready',(_q,r)=>r.json({status:'ok',service:'directory'}));
+  app.get('/release.json',(_q,r)=>r.json(require('openvibe-shared/release').createRelease({service:'directory',root:path.join(__dirname,'..')})));
+  const all=()=>store.list();
+  const counts=()=>Object.fromEntries(Object.keys(kinds).map(k=>[k,store.list(k).length]));
+  const find=(kind,slug)=>store.list(kind).find(e=>e.slug===slug);
+  const search=(q,kind)=>{const terms=String(q||'').toLowerCase().trim().slice(0,120);const rows=kind?store.list(kind):all();return !terms?rows:rows.filter(e=>`${e.name} ${e.description} ${e.kind} ${e.group||''} ${e.provider||''} ${(e.topics||[]).join(' ')}`.toLowerCase().includes(terms));};
+  app.get('/api/v1/kinds',(_q,r)=>r.json({kinds:Object.entries(kinds).map(([id,name])=>({id,name,count:counts()[id]})),last_checked:store.state.refreshed_at,status:store.state.status}));
+  app.get('/api/v1/entries',(q,r)=>{const kind=String(q.query.kind||'');if(kind&&!kinds[kind])return r.status(400).json({error:'invalid_kind'});const page=Math.max(1,Math.min(1000,Number(q.query.page)||1)),limit=50;const rows=search(q.query.q,kind);r.json({count:rows.length,page,entries:rows.slice((page-1)*limit,page*limit)});});
+  app.get('/api/v1/entries/:kind/:slug',(q,r)=>{const e=find(q.params.kind,q.params.slug);return e?r.json(e):r.status(404).json({error:'entry.not_found'});});
+  app.get('/robots.txt',(_q,r)=>r.type('text').send('User-agent: *\nAllow: /\nSitemap: https://openvibe.directory/sitemap.xml\n'));
+  app.get('/llms.txt',(_q,r)=>r.type('text').send('# OpenVibe.Directory\n\nSource-linked listings with last checked dates.\n\n'+Object.entries(kinds).map(([id,name])=>`- [${name}](https://openvibe.directory/kinds/${id}): ${store.list(id).length} entries`).join('\n')+'\n\nJSON: https://openvibe.directory/api/v1/entries\n'));
+  app.get('/sitemap.xml',(_q,r)=>{const paths=['/',...Object.keys(kinds).map(k=>`/kinds/${k}`),...all().map(v.entryPath)];r.type('application/xml').send('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+paths.map(p=>`<url><loc>https://openvibe.directory${v.esc(p)}</loc></url>`).join('')+'</urlset>');});
+  app.get('/',(q,r)=>r.send(v.page('Directories',v.home(kinds,counts(),all()),'/',[{'@context':'https://schema.org','@type':'WebSite',name:'OpenVibe.Directory',url:'https://openvibe.directory/',potentialAction:{'@type':'SearchAction',target:'https://openvibe.directory/search?q={search_term_string}','query-input':'required name=search_term_string'}}])));
+  app.get('/search',(q,r)=>{const kind=String(q.query.kind||'');if(kind&&!kinds[kind])return r.sendStatus(404);const term=String(q.query.q||'').slice(0,120);const rows=search(term,kind).slice(0,200);r.send(v.page('Search directory',v.listing(kind||'all','Search directory',rows,term),`/search?q=${encodeURIComponent(term)}`));});
+  app.get('/kinds/:kind',(q,r)=>{const kind=q.params.kind;if(!kinds[kind])return r.sendStatus(404);r.send(v.page(kinds[kind],v.listing(kind,kinds[kind],store.list(kind)),q.path));});
+  app.get('/entries/:kind/:slug',(q,r)=>{const e=find(q.params.kind,q.params.slug);if(!e)return r.sendStatus(404);r.vary('Accept');if(q.accepts(['html','text/markdown'])==='text/markdown')return r.type('text/markdown').send(v.markdown(e));r.send(v.page(e.name,v.detail(e),q.path,[{'@context':'https://schema.org','@type':e.kind==='businesses'?'LocalBusiness':'Thing',name:e.name,description:e.description,url:`https://openvibe.directory${q.path}`,dateModified:e.last_checked,sameAs:e.sources.map(s=>s.url)}]));});
+  app.use((_q,r)=>r.status(404).send('Not found'));
+  store.start();
+  return app;
+}
+module.exports={createApp};
