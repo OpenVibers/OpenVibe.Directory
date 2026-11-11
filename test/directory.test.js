@@ -9,11 +9,17 @@ test('unverified OSM phone tags are not published and business source is attribu
   assert.equal(rows.length,1);assert.equal(rows[0].phone,undefined);assert.match(rows[0].sources[0].url,/openstreetmap/);assert.match(rows[0].osm_attribution,/ODbL/);
 });
 test('AI directory reads Exchange model ids and links to their model pages',()=>{
-  const rows=models({generated_at:'2026-11-11T00:00:00Z',models:[{slug:'google/gemini-3',name:'Gemini 3',context:1000000,modalities:['text','image']}]},'2026-11-11T01:00:00Z');
+  const rows=models({generated_at:'2026-11-11T00:00:00Z',models:[
+    {slug:'google/gemini-3',name:'Gemini 3',routing_enabled:true,context_window:1000000,modalities:['text','image']},
+    {id:'google/gemini-4',name:'Gemini 4',status:'spotted',routing_enabled:false,source:'https://aistudio.google.com/docs/changelog'}
+  ]},'2026-11-11T01:00:00Z');
   assert.equal(URLS.models,'https://openvibe.exchange/api/v1/models');
   assert.equal(rows[0].website,'https://openvibe.exchange/m/google/gemini-3');
   assert.equal(rows[0].context,1000000);
-  assert.equal(rows[1].kind,'providers');
+  assert.equal(rows[1].website,'https://openvibe.exchange/models/google%2Fgemini-4');
+  assert.equal(rows[1].status,'spotted');
+  assert.equal(rows[1].sources[0].url,'https://aistudio.google.com/docs/changelog');
+  assert.equal(rows[2].kind,'providers');
 });
 test('failed refresh retains the last successful source and reports stale status',async()=>{
   let fail=false;const fetchImpl=async(url)=>{if(fail)throw Error('source down');return {ok:true,json:async()=>url.includes('frame?')?{nav:[{id:'live',name:'Live',url:'https://openvibe.live/'}]}:{tools:[{id:'yaml',name:'YAML',docs:'https://openvibe.tools/tool/yaml'}],things:[{id:'a/b',name:'B',maker:'A',url:'https://example.com'}],items:[{full_name:'OpenVibers/Test',name:'Test',html_url:'https://github.com/OpenVibers/Test'}]},text:async()=>'<osm><node id="1"><tag k="shop" v="books"/><tag k="name" v="Books"/></node></osm>'};};
