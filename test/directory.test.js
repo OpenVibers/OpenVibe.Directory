@@ -3,10 +3,10 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {createStore,businesses}=require('../server/sources');
 const {createApp}=require('../server/app');
-test('business phone is only read from business OSM tags and source is attributed',()=>{
+test('unverified OSM phone tags are not published and business source is attributed',()=>{
   const xml='<osm><node id="1"><tag k="shop" v="books"/><tag k="name" v="Bookshop"/><tag k="phone" v="+1 415 555 0100"/></node><node id="2"><tag k="name" v="Jane Smith"/><tag k="phone" v="+1 415 555 0101"/></node></osm>';
   const rows=businesses(xml,'2026-11-10T00:00:00.000Z');
-  assert.equal(rows.length,1);assert.equal(rows[0].phone,'+1 415 555 0100');assert.match(rows[0].sources[0].url,/openstreetmap/);assert.match(rows[0].osm_attribution,/ODbL/);
+  assert.equal(rows.length,1);assert.equal(rows[0].phone,undefined);assert.match(rows[0].sources[0].url,/openstreetmap/);assert.match(rows[0].osm_attribution,/ODbL/);
 });
 test('failed refresh retains the last successful source and reports stale status',async()=>{
   let fail=false;const fetchImpl=async(url)=>{if(fail)throw Error('source down');return {ok:true,json:async()=>url.includes('frame?')?{nav:[{id:'live',name:'Live',url:'https://openvibe.live/'}]}:{tools:[{id:'yaml',name:'YAML',docs:'https://openvibe.tools/tool/yaml'}],things:[{id:'a/b',name:'B',maker:'A',url:'https://example.com'}],items:[{full_name:'OpenVibers/Test',name:'Test',html_url:'https://github.com/OpenVibers/Test'}]},text:async()=>'<osm><node id="1"><tag k="shop" v="books"/><tag k="name" v="Books"/></node></osm>'};};
