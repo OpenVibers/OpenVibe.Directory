@@ -12,7 +12,8 @@ function createApp({store=createStore(),peopleStore=null,auth=createAuth()}={}){
   if(auth)app.use('/auth',auth.router(express));
   app.get('/api/health',(_q,r)=>r.json({status:'ok',service:'directory'}));
   app.get('/api/ready',(_q,r)=>r.json({status:'ok',service:'directory'}));
-  app.get('/release.json',(_q,r)=>r.json(require('openvibe-shared/release').createRelease({service:'directory',root:path.join(__dirname,'..')})));
+  const release=require('openvibe-shared/release').createRelease({service:'directory',root:path.join(__dirname,'..')});
+  app.get('/release.json',release.handler);
   const all=()=>store.list();
   const counts=()=>Object.fromEntries(Object.keys(kinds).map(k=>[k,store.list(k).length]));
   const find=(kind,slug)=>store.list(kind).find(e=>e.slug===slug);
