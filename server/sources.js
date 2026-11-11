@@ -3,7 +3,7 @@ const {XMLParser} = require('fast-xml-parser');
 const URLS = Object.freeze({
   sites: 'https://openvibe.network/api/frame?host=openvibe.network',
   tools: 'https://openvibe.tools/api/v1/tools',
-  models: 'https://openvibe.compare/api/v1/comparisons/ai-models',
+  models: 'https://openvibe.exchange/api/v1/models',
   projects: 'https://api.github.com/search/repositories?q=org%3AOpenVibers+archived%3Afalse&per_page=100',
   businesses: 'https://api.openstreetmap.org/api/0.6/map?bbox=-122.425,37.774,-122.415,37.780'
 });
@@ -23,10 +23,11 @@ function tools(data, checked) {
 }
 function models(data, checked) {
   const out=[], makers=new Map();
-  for (const m of data.things||[]) {
-    const id=m.id, maker=m.maker||String(id).split('/')[0];
+  for (const m of data.models||data.things||[]) {
+    const id=m.slug||m.id, maker=m.maker||String(id).split('/')[0];
     const source=safeUrl(m.url)||URLS.models;
-    const e=entry('models',id,m.name,`AI model from ${maker}. See the dated comparison for prices and measured results.`,`https://openvibe.compare/things/${encodeURIComponent(id)}`,source,iso(data.updated_at)||checked,{provider:maker});
+    const website=m.slug ? `https://openvibe.exchange/m/${m.slug.split('/').map(encodeURIComponent).join('/')}` : `https://openvibe.compare/things/${encodeURIComponent(id)}`;
+    const e=entry('models',id,m.name,`AI model from ${maker}. See current provider offers, prices and measured results.`,website,source,iso(data.generated_at||data.updated_at)||checked,{provider:maker,context:m.context||null,modalities:m.modalities||[]});
     if(e) out.push(e);
     if(maker && !makers.has(maker)) makers.set(maker,entry('providers',maker,maker,'AI model provider.',source,URLS.models,iso(data.updated_at)||checked));
   }
