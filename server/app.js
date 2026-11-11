@@ -3,10 +3,13 @@ const express=require('express');
 const path=require('node:path');
 const {createStore,kinds}=require('./sources');
 const v=require('./views');
-function createApp({store=createStore()}={}){
+const {createAuth,writeGuard}=require('./people');
+function createApp({store=createStore(),peopleStore=null,auth=createAuth()}={}){
   const app=express();app.disable('x-powered-by');
   app.use((_q,r,next)=>{r.set('X-Content-Type-Options','nosniff');r.set('Referrer-Policy','strict-origin-when-cross-origin');next();});
+  app.use(express.static(path.join(__dirname,'../public')));
   app.use('/shared',require('openvibe-shared/serve').handler());
+  if(auth)app.use('/auth',auth.router(express));
   app.get('/api/health',(_q,r)=>r.json({status:'ok',service:'directory'}));
   app.get('/api/ready',(_q,r)=>r.json({status:'ok',service:'directory'}));
   app.get('/release.json',(_q,r)=>r.json(require('openvibe-shared/release').createRelease({service:'directory',root:path.join(__dirname,'..')})));
@@ -14,6 +17,13 @@ function createApp({store=createStore()}={}){
   const counts=()=>Object.fromEntries(Object.keys(kinds).map(k=>[k,store.list(k).length]));
   const find=(kind,slug)=>store.list(kind).find(e=>e.slug===slug);
   const search=(q,kind)=>{const terms=String(q||'').toLowerCase().trim().slice(0,120);const rows=kind?store.list(kind):all();return !terms?rows:rows.filter(e=>`${e.name} ${e.description} ${e.kind} ${e.group||''} ${e.provider||''} ${(e.topics||[]).join(' ')}`.toLowerCase().includes(terms));};
+  const subject=q=>q.user&&typeof q.user.subject_id==='string'&&q.user.subject_id.startsWith('usr_')?q.user.subject_id:null;
+  const signedIn=(q,r,next)=>{if(!auth||!peopleStore)return r.status(503).json({error:'people.unavailable'});return auth.requireAuth()(q,r,()=>subject(q)?next():r.status(403).json({error:'identity.invalid'}));};
+  const handle=fn=>(q,r,next)=>Promise.resolve(fn(q,r)).catch(next);
+  app.get('/people/me',auth?auth.optionalAuth():(_q,_r,next)=>next(),handle(async(q,r)=>{r.set('Cache-Control','private, no-store');r.set('X-Robots-Tag','noindex, nofollow');if(!auth||!peopleStore)return r.status(503).send('People listings are temporarily unavailable.');if(!subject(q))return r.redirect('/auth/login?next=/people/me');const row=await peopleStore.get(subject(q));r.send(v.page('Your listing',v.peopleForm(row),'/people/me'));}));
+  app.get('/api/v1/people/me',signedIn,handle(async(q,r)=>{r.set('Cache-Control','private, no-store');r.json({listing:await peopleStore.get(subject(q))});}));
+  app.put('/api/v1/people/me',signedIn,writeGuard,express.json({limit:'4kb'}),handle(async(q,r)=>{const row=await peopleStore.put(subject(q),q.body);return row?r.json({listing:row}):r.status(400).json({error:'listing.invalid'});}));
+  app.delete('/api/v1/people/me',signedIn,writeGuard,handle(async(q,r)=>{await peopleStore.remove(subject(q));r.status(204).end();}));
   app.get('/api/v1/kinds',(_q,r)=>r.json({kinds:Object.entries(kinds).map(([id,name])=>({id,name,count:counts()[id]})),last_checked:store.state.refreshed_at,status:store.state.status}));
   app.get('/api/v1/entries',(q,r)=>{const kind=String(q.query.kind||'');if(kind&&!kinds[kind])return r.status(400).json({error:'invalid_kind'});const page=Math.max(1,Math.min(1000,Number(q.query.page)||1)),limit=50;const rows=search(q.query.q,kind);r.json({count:rows.length,page,entries:rows.slice((page-1)*limit,page*limit)});});
   app.get('/api/v1/entries/:kind/:slug',(q,r)=>{const e=find(q.params.kind,q.params.slug);return e?r.json(e):r.status(404).json({error:'entry.not_found'});});
@@ -23,7 +33,7 @@ function createApp({store=createStore()}={}){
   app.get('/',(q,r)=>r.send(v.page('Directories',v.home(kinds,counts(),all()),'/',[{'@context':'https://schema.org','@type':'WebSite',name:'OpenVibe.Directory',url:'https://openvibe.directory/',potentialAction:{'@type':'SearchAction',target:'https://openvibe.directory/search?q={search_term_string}','query-input':'required name=search_term_string'}}])));
   app.get('/search',(q,r)=>{const kind=String(q.query.kind||'');if(kind&&!kinds[kind])return r.sendStatus(404);const term=String(q.query.q||'').slice(0,120);const rows=search(term,kind).slice(0,200);r.send(v.page('Search directory',v.listing(kind||'all','Search directory',rows,term),`/search?q=${encodeURIComponent(term)}`));});
   app.get('/kinds/:kind',(q,r)=>{const kind=q.params.kind;if(!kinds[kind])return r.sendStatus(404);r.send(v.page(kinds[kind],v.listing(kind,kinds[kind],store.list(kind)),q.path));});
-  app.get('/entries/:kind/:slug',(q,r)=>{const e=find(q.params.kind,q.params.slug);if(!e)return r.sendStatus(404);r.vary('Accept');if(q.accepts(['html','text/markdown'])==='text/markdown')return r.type('text/markdown').send(v.markdown(e));r.send(v.page(e.name,v.detail(e),q.path,[{'@context':'https://schema.org','@type':e.kind==='businesses'?'LocalBusiness':'Thing',name:e.name,description:e.description,url:`https://openvibe.directory${q.path}`,dateModified:e.last_checked,sameAs:e.sources.map(s=>s.url)}]));});
+  app.get('/entries/:kind/:slug',(q,r)=>{const e=find(q.params.kind,q.params.slug);if(!e)return r.sendStatus(404);r.vary('Accept');if(q.accepts(['html','text/markdown'])==='text/markdown')return r.type('text/markdown').send(v.markdown(e));r.send(v.page(e.name,v.detail(e),q.path,[{'@context':'https://schema.org','@type':e.kind==='businesses'?'LocalBusiness':e.kind==='people'?'Person':'Thing',name:e.name,description:e.description,url:`https://openvibe.directory${q.path}`,dateModified:e.last_checked,sameAs:e.sources.map(s=>s.url)}]));});
   app.use((_q,r)=>r.status(404).send('Not found'));
   store.start();
   return app;
