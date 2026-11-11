@@ -48,3 +48,20 @@ test('directory and model searches use the shared composer and preserve the kind
     assert.equal(result.status,200);assert.match(await result.text(),/name="q"[^>]*>Gemini<\/textarea>/);
   }finally{server.close();}
 });
+test('home silently checks Network only for an unrecognized browser visitor',async()=>{
+  const store=createStore({fetchImpl:async()=>({ok:false,status:503})});store.start=()=>{};
+  const auth={router:()=>((_q,_r,next)=>next()),optionalAuth:()=>((q,_r,next)=>{if((q.get('cookie')||'').includes('ov_token=known'))q.user={subject_id:'usr_12345678'};next();})};
+  const server=createApp({store,auth}).listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
+  const base=`http://127.0.0.1:${server.address().port}`;
+  const get=(path,headers)=>fetch(base+path,{headers,redirect:'manual'});
+  try{
+    let r=await get('/',{accept:'text/html'});assert.equal(r.status,302);assert.equal(r.headers.get('location'),'/auth/login?silent=1');assert.match(r.headers.get('cache-control'),/no-store/);
+    for(const [path,headers] of [
+      ['/',{accept:'text/html',cookie:'ov_sso_hint=guest'}],
+      ['/?sso=none',{accept:'text/html'}],
+      ['/',{accept:'text/html',cookie:'ov_token=known'}],
+      ['/',{accept:'text/html','user-agent':'A search crawler'}],
+      ['/',{accept:'application/json'}],
+    ]){r=await get(path,headers);assert.equal(r.status,200,JSON.stringify({path,headers}));}
+  }finally{server.close();}
+});
