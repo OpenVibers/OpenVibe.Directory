@@ -25,9 +25,11 @@ function models(data, checked) {
   const out=[], makers=new Map();
   for (const m of data.models||data.things||[]) {
     const id=m.slug||m.id, maker=m.maker||String(id).split('/')[0];
-    const source=safeUrl(m.url)||URLS.models;
-    const website=m.slug ? `https://openvibe.exchange/m/${m.slug.split('/').map(encodeURIComponent).join('/')}` : `https://openvibe.compare/things/${encodeURIComponent(id)}`;
-    const e=entry('models',id,m.name,`AI model from ${maker}. See current provider offers, prices and measured results.`,website,source,iso(data.generated_at||data.updated_at)||checked,{provider:maker,context:m.context||null,modalities:m.modalities||[]});
+    const source=safeUrl(m.source)||safeUrl(m.url)||URLS.models;
+    const website=m.routing_enabled && m.slug
+      ? `https://openvibe.exchange/m/${m.slug.split('/').map(encodeURIComponent).join('/')}`
+      : `https://openvibe.exchange/models/${encodeURIComponent(id)}`;
+    const e=entry('models',id,m.name,`AI model from ${maker}. See current provider offers, prices and measured results.`,website,source,iso(data.generated_at||data.updated_at)||checked,{provider:maker,context:m.context_window??m.context??null,modalities:m.modalities||[],status:m.status||null});
     if(e) out.push(e);
     if(maker && !makers.has(maker)) makers.set(maker,entry('providers',maker,maker,'AI model provider.',source,URLS.models,iso(data.updated_at)||checked));
   }
@@ -54,7 +56,7 @@ function businesses(xml, checked) {
 }
 function toArray(value){return value==null?[]:Array.isArray(value)?value:[value];}
 const parsers={sites,tools,models,projects,businesses};
-function createStore({fetchImpl=fetch,now=()=>new Date(),intervalMs=6*60*60*1000}={}){
+function createStore({fetchImpl=fetch,now=()=>new Date(),intervalMs=10*60*1000}={}){
   const state={entries:new Map(Object.keys(kinds).map(k=>[k,[]])),status:{},refreshed_at:null};
   let pending=null, timer=null;
   async function refresh(){
