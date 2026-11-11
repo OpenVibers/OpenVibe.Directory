@@ -1,15 +1,22 @@
 {
   "name": "openvibe-directory",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Source-linked directories that refresh themselves",
   "main": "server/index.js",
-  "scripts": {"start": "node server/index.js", "test": "node --test test/*.test.js"},
-  "engines": {"node": ">=22"},
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
   "license": "AGPL-3.0-only",
   "dependencies": {
     "express": "^4.21.2",
     "fast-xml-parser": "^5.2.5",
-    "openvibe-shared": "https://codeload.github.com/OpenVibers/OpenVibe.Shared/tar.gz/refs/tags/v4.202.0"
+    "openvibe-sdk": "https://codeload.github.com/OpenVibers/OpenVibe.SDK/tar.gz/refs/tags/v0.74.0",
+    "openvibe-shared": "https://codeload.github.com/OpenVibers/OpenVibe.Shared/tar.gz/refs/tags/v4.202.0",
+    "pg": "^8.23.1"
   }
 }

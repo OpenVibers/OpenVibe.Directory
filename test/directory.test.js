@@ -17,5 +17,5 @@ test('entry page emits structured data and escapes source text',async()=>{
   store.state.entries.set('sites',[{kind:'sites',id:'x',slug:'x',name:'<bad>',description:'Test',website:'https://example.com/',last_checked:'2026-11-10T00:00:00.000Z',sources:[{url:'https://example.com/',checked_at:'2026-11-10T00:00:00.000Z'}]}]);
   const server=createApp({store}).listen(0,'127.0.0.1');
   await new Promise(resolve=>server.once('listening',resolve));
-  try{const r=await fetch(`http://127.0.0.1:${server.address().port}/entries/sites/x`);const html=await r.text();assert.equal(r.status,200);assert.match(html,/schema.org/);assert.ok(!html.includes('<bad>'));}finally{server.close();}
+  try{const base=`http://127.0.0.1:${server.address().port}`;const r=await fetch(base+'/entries/sites/x');const html=await r.text();assert.equal(r.status,200);assert.match(html,/schema.org/);assert.ok(!html.includes('<bad>'));const release=await fetch(base+'/release.json').then(x=>x.json());assert.equal(release.service,'directory');}finally{server.close();}
 });
