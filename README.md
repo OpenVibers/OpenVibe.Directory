@@ -5,3 +5,5 @@ Source-linked directories for OpenVibe sites and tools, AI models and providers,
 Business listings are a bounded San Francisco pilot sourced from OpenStreetMap under ODbL 1.0. Unverified OpenStreetMap phone tags are omitted; a business number needs a business-owned source before publication. Private-person searches and reverse lookups are excluded. People can sign in to claim, edit, unpublish, and delete only their own entry; an entry is private until they explicitly publish it. The form offers no age, city, or phone fields.
 
 Run `npm ci`, then `node server/index.js`. Check `/api/v1/kinds`, `/api/v1/entries`, `/sitemap.xml`, and `/llms.txt`.
+
+The opt-in people table is created at startup through `DATABASE_DIRECT_URL` (owner connection). Listing reads and writes use `DATABASE_URL` (runtime connection).

@@ -15,11 +15,13 @@ function validate(input){
   return {display_name,bio,website,visible:input.visible};
 }
 function publicEntry(row){const id=row.subject_id;const checked=new Date(row.confirmed_at).toISOString();return {kind:'people',id,slug:id,name:row.display_name,description:row.bio,website:row.website,sources:[{url:`https://openvibe.directory/entries/people/${encodeURIComponent(id)}`,checked_at:checked,label:'Owner confirmed'}],last_checked:checked};}
-async function createPeopleStore({connectionString=process.env.DATABASE_URL,pool,entries}={}){
+async function createPeopleStore({connectionString=process.env.DATABASE_URL,directConnectionString=process.env.DATABASE_DIRECT_URL,pool,migrationPool,entries}={}){
   if(!pool&&!connectionString)throw Error('DATABASE_URL required for people listings');
   const db=pool||new Pool({connectionString,max:4});
   const migration=fs.readFileSync(path.join(__dirname,'../migrations/0001_people.sql'),'utf8');
-  await db.query(migration);
+  if(!migrationPool&&!directConnectionString)throw Error('DATABASE_DIRECT_URL required for migrations');
+  const owner=migrationPool||new Pool({connectionString:directConnectionString,max:1});
+  try{await owner.query(migration);}finally{if(!migrationPool)await owner.end();}
   const sync=async()=>{const {rows}=await db.query('SELECT subject_id,display_name,bio,website,visible,confirmed_at FROM directory_people WHERE visible ORDER BY updated_at DESC LIMIT 10000');entries.set('people',rows.map(publicEntry));};
   await sync();
   const get=async subject=>{const {rows}=await db.query('SELECT subject_id,display_name,bio,website,visible,confirmed_at FROM directory_people WHERE subject_id=$1',[subject]);return rows[0]||null;};

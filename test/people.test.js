@@ -1,7 +1,7 @@
 'use strict';
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const {validate,publicEntry}=require('../server/people');
+const {validate,publicEntry,createPeopleStore}=require('../server/people');
 const {createStore}=require('../server/sources');
 const {createApp}=require('../server/app');
 test('opt-in fields exclude private phone, age and city, and default unlisted',()=>{
@@ -10,6 +10,15 @@ test('opt-in fields exclude private phone, age and city, and default unlisted',(
   assert.equal(validate({display_name:'<script>',visible:true}),null);
   const e=publicEntry({subject_id:'usr_12345678',display_name:'Ada',bio:'Hello',website:null,confirmed_at:new Date('2026-11-10T00:00:00Z'),phone:'123',age:42,city:'SF'});
   assert.equal(e.phone,undefined);assert.equal(e.age,undefined);assert.equal(e.city,undefined);
+});
+test('migration uses owner connection while listing reads use runtime connection',async()=>{
+  const ownerCalls=[],runtimeCalls=[];
+  const migrationPool={query:async sql=>{ownerCalls.push(sql);return {rows:[]};}};
+  const pool={query:async sql=>{runtimeCalls.push(sql);return {rows:[]};},end:async()=>{}};
+  const people=await createPeopleStore({pool,migrationPool,entries:new Map()});
+  assert.equal(ownerCalls.length,1);assert.match(ownerCalls[0],/CREATE TABLE/);
+  assert.equal(runtimeCalls.length,1);assert.match(runtimeCalls[0],/^SELECT /);
+  await people.close();
 });
 test('only the signed-in subject can write and unpublished entries stay out of search',async()=>{
   const store=createStore({fetchImpl:async()=>({ok:false,status:503})});store.start=()=>{};
