@@ -5,3 +5,7 @@ Source-linked directories for OpenVibe sites and tools, AI models and providers,
 Business listings are a bounded San Francisco pilot sourced from OpenStreetMap under ODbL 1.0. Unverified OpenStreetMap phone tags are omitted; a business number needs a business-owned source before publication. Private-person searches and reverse lookups are excluded. The people directory has no imported entries and remains empty until the opt-in claim flow is available.
 
 Run `npm ci`, then `node server/index.js`. Check `/api/v1/kinds`, `/api/v1/entries`, `/sitemap.xml`, and `/llms.txt`.
+
+<!-- versions:start -->
+- openvibe-shared: v4.205.0
+<!-- versions:end -->
