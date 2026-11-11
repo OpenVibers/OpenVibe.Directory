@@ -32,3 +32,19 @@ test('entry page emits structured data and escapes source text',async()=>{
   await new Promise(resolve=>server.once('listening',resolve));
   try{const base=`http://127.0.0.1:${server.address().port}`;const r=await fetch(base+'/entries/sites/x');const html=await r.text();assert.equal(r.status,200);assert.match(html,/schema.org/);assert.ok(!html.includes('<bad>'));const release=await fetch(base+'/release.json').then(x=>x.json());assert.equal(release.service,'directory');}finally{server.close();}
 });
+test('directory and model searches use the shared composer and preserve the kind filter',async()=>{
+  const store=createStore({fetchImpl:async()=>({ok:false,status:503})});store.start=()=>{};
+  store.state.entries.set('models',[{kind:'models',id:'google/gemini',slug:'google-gemini',name:'Gemini',description:'Vision model',website:'https://openvibe.exchange/models/google%2Fgemini',last_checked:'2026-11-11T00:00:00.000Z',sources:[]}]);
+  const server=createApp({store}).listen(0,'127.0.0.1');
+  await new Promise(resolve=>server.once('listening',resolve));
+  try{
+    const base=`http://127.0.0.1:${server.address().port}`;
+    const home=await fetch(base+'/').then(r=>r.text());
+    assert.match(home,/data-ovt-composer/);assert.match(home,/ov-composer\.js\?v=[a-f0-9]+/);
+    const modelsPage=await fetch(base+'/kinds/models').then(r=>r.text());
+    assert.match(modelsPage,/class="ovt-c-row"/);assert.match(modelsPage,/class="ovt-c-tools"/);
+    assert.match(modelsPage,/name="kind" value="models"/);
+    const result=await fetch(base+'/search?kind=models&q=Gemini');
+    assert.equal(result.status,200);assert.match(await result.text(),/name="q"[^>]*>Gemini<\/textarea>/);
+  }finally{server.close();}
+});
