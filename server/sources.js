@@ -46,8 +46,8 @@ function businesses(xml, checked) {
     const id=`${type}-${n.id}`;
     const source=`https://www.openstreetmap.org/${type}/${n.id}`;
     const website=safeUrl(tags.website)||safeUrl(tags['contact:website'])||source;
-    const phone=tags['contact:phone']||tags.phone||null;
-    out.push(entry('businesses',id,tags.name,`${tags.shop||tags.amenity} in San Francisco, mapped in OpenStreetMap.`,website,source,checked,{group:tags.shop||tags.amenity,phone:phone&&String(phone).slice(0,80),osm_attribution:'© OpenStreetMap contributors, ODbL 1.0'}));
+    // OSM contact tags can be contributed by anyone; show a number only after checking a business-owned source.
+    out.push(entry('businesses',id,tags.name,`${tags.shop||tags.amenity} in San Francisco, mapped in OpenStreetMap.`,website,source,checked,{group:tags.shop||tags.amenity,osm_attribution:'© OpenStreetMap contributors, ODbL 1.0'}));
   }
   return out.filter(Boolean);
 }
