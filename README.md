@@ -11,6 +11,6 @@ Run `npm ci`, then `node server/index.js`. Check `/api/v1/kinds`, `/api/v1/entri
 The opt-in people table is created at startup through `DATABASE_DIRECT_URL` (owner connection). Listing reads and writes use `DATABASE_URL` (runtime connection).
 
 <!-- versions:start -->
-- openvibe-sdk: v0.150.0
+- openvibe-sdk: v0.160.0
 - openvibe-shared: v4.223.1
 <!-- versions:end -->
