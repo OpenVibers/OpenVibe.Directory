@@ -16,7 +16,7 @@
     "express": "^4.21.2",
     "fast-xml-parser": "^5.2.5",
     "openvibe-sdk": "https://codeload.github.com/OpenVibers/OpenVibe.SDK/tar.gz/refs/tags/v0.161.0",
-    "openvibe-shared": "https://codeload.github.com/OpenVibers/OpenVibe.Shared/tar.gz/refs/tags/v4.235.0",
+    "openvibe-shared": "https://codeload.github.com/OpenVibers/OpenVibe.Shared/tar.gz/refs/tags/v4.237.0",
     "pg": "^8.23.1"
   }
 }
