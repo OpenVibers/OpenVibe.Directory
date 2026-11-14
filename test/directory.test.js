@@ -32,7 +32,7 @@ test('entry page emits structured data and escapes source text',async()=>{
   await new Promise(resolve=>server.once('listening',resolve));
   try{const base=`http://127.0.0.1:${server.address().port}`;const r=await fetch(base+'/entries/sites/x');const html=await r.text();assert.equal(r.status,200);assert.match(html,/schema.org/);assert.ok(!html.includes('<bad>'));const release=await fetch(base+'/release.json').then(x=>x.json());assert.equal(release.service,'directory');}finally{server.close();}
 });
-test('directory and model searches use the shared composer and preserve the kind filter',async()=>{
+test('directory and model searches are one search field and keep the kind filter',async()=>{
   const store=createStore({fetchImpl:async()=>({ok:false,status:503})});store.start=()=>{};
   store.state.entries.set('models',[{kind:'models',id:'google/gemini',slug:'google-gemini',name:'Gemini',description:'Vision model',website:'https://openvibe.exchange/models/google%2Fgemini',last_checked:'2026-11-11T00:00:00.000Z',sources:[]}]);
   const server=createApp({store}).listen(0,'127.0.0.1');
@@ -40,12 +40,15 @@ test('directory and model searches use the shared composer and preserve the kind
   try{
     const base=`http://127.0.0.1:${server.address().port}`;
     const home=await fetch(base+'/').then(r=>r.text());
-    assert.match(home,/data-ovt-composer/);assert.match(home,/ov-composer\.js\?v=[a-f0-9]+/);
+    // 2026-11-14 remake (the owner: "completely terrible design"): one search field (never a chat box), the directories as
+    // tiles with their counts, the places beside or on top, times in the reader's clock.
+    assert.match(home,/<form class="dir-search" role="search" method="get" action="\/search">/);assert.doesNotMatch(home,/data-ovt-composer/);
+    assert.match(home,/class="dir-kinds"/);assert.match(home,/data-ov-time="day"/);assert.match(home,/directory\.css/);
     const modelsPage=await fetch(base+'/kinds/models').then(r=>r.text());
-    assert.match(modelsPage,/class="ovt-c-row"/);assert.match(modelsPage,/class="ovt-c-tools"/);
+    assert.match(modelsPage,/<nav class="ov-places dir-places" aria-label="Directories">/);assert.match(modelsPage,/href="\/kinds\/models"[^>]*aria-current="page"/);
     assert.match(modelsPage,/name="kind" value="models"/);
     const result=await fetch(base+'/search?kind=models&q=Gemini');
-    assert.equal(result.status,200);assert.match(await result.text(),/name="q"[^>]*>Gemini<\/textarea>/);
+    assert.equal(result.status,200);assert.match(await result.text(),/name="q" value="Gemini"/);
   }finally{server.close();}
 });
 test('home silently checks Network only for an unrecognized browser visitor',async()=>{
