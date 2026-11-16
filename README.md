@@ -9,7 +9,3 @@ Business listings are a bounded San Francisco pilot sourced from OpenStreetMap u
 Run `npm ci`, then `node server/index.js`. Check `/api/v1/kinds`, `/api/v1/entries`, `/sitemap.xml`, and `/llms.txt`.
 
 The opt-in people table is created at startup through `DATABASE_DIRECT_URL` (owner connection). Listing reads and writes use `DATABASE_URL` (runtime connection).
-
-<!-- versions:start -->
-- openvibe-sdk: v0.172.0
-<!-- versions:end -->
