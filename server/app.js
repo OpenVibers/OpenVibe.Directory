@@ -6,13 +6,15 @@ const v=require('./views');
 const {createAuth,writeGuard}=require('./people');
 function createApp({store=createStore(),peopleStore=null,auth=createAuth()}={}){
   const app=express();app.disable('x-powered-by');
+  // GET /metrics (loopback only: Prometheus on the host), the HTTP middleware first, process metrics and release_info.
+  const release=require('openvibe-shared/release').createRelease({service:'directory',root:path.join(__dirname,'..')});
+  require('openvibe-shared/metrics').instrument(app,{service:'directory',release:release.release});
   app.use((_q,r,next)=>{r.set('X-Content-Type-Options','nosniff');r.set('Referrer-Policy','strict-origin-when-cross-origin');next();});
   app.use(express.static(path.join(__dirname,'../public')));
   app.use('/shared',require('openvibe-shared/serve').handler());
   if(auth)app.use('/auth',auth.router(express));
   app.get('/api/health',(_q,r)=>r.json({status:'ok',service:'directory'}));
   app.get('/api/ready',(_q,r)=>r.json({status:'ok',service:'directory'}));
-  const release=require('openvibe-shared/release').createRelease({service:'directory',root:path.join(__dirname,'..')});
   app.get('/release.json',release.handler);
   const all=()=>store.list();
   const counts=()=>Object.fromEntries(Object.keys(kinds).map(k=>[k,store.list(k).length]));
