@@ -56,6 +56,10 @@ function businesses(xml, checked) {
 }
 function toArray(value){return value==null?[]:Array.isArray(value)?value:[value];}
 const parsers={sites,tools,models,projects,businesses};
+// A source fetched less often than the ten-minute refresh (11-18): OpenStreetMap's map download is 4.7 MB of XML whose
+// parse held the event loop 560 ms on every refresh, for ~160 businesses that change slowly; and api.openstreetmap.org's
+// map call is not for repeated bulk downloads. After a good fetch it waits this long; a failed one is tried again next time.
+const EVERY=Object.freeze({businesses:6*60*60*1000});
 function createStore({fetchImpl=fetch,now=()=>new Date(),intervalMs=10*60*1000}={}){
   const state={entries:new Map(Object.keys(kinds).map(k=>[k,[]])),status:{},refreshed_at:null};
   let pending=null, timer=null;
@@ -64,6 +68,8 @@ function createStore({fetchImpl=fetch,now=()=>new Date(),intervalMs=10*60*1000}=
     pending=(async()=>{
       const checked=now().toISOString();
       await Promise.all(Object.entries(parsers).map(async([kind,parse])=>{
+        const last=state.status[kind];
+        if(EVERY[kind] && last && last.ok && now().getTime()-Date.parse(last.last_checked)<EVERY[kind]) return;
         try{
           const r=await fetchImpl(URLS[kind],{headers:{'Accept':kind==='businesses'?'application/xml':'application/json','User-Agent':'OpenVibe.Directory/0.1 (+https://openvibe.directory)'},signal:AbortSignal.timeout(12000)});
           if(!r.ok)throw Error(`upstream ${r.status}`);
@@ -87,4 +93,4 @@ function createStore({fetchImpl=fetch,now=()=>new Date(),intervalMs=10*60*1000}=
   function list(kind){return kind?state.entries.get(kind)||[]:[...state.entries.values()].flat();}
   return {state,refresh,start,stop,list};
 }
-module.exports={URLS,kinds,sites,tools,models,projects,businesses,createStore};
+module.exports={URLS,kinds,sites,tools,models,projects,businesses,createStore,EVERY};
