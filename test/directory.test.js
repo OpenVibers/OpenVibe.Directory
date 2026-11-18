@@ -21,6 +21,17 @@ test('AI directory reads Exchange model ids and links to their model pages',()=>
   assert.equal(rows[1].sources[0].url,'https://aistudio.google.com/docs/changelog');
   assert.equal(rows[2].kind,'providers');
 });
+test('businesses (OpenStreetMap, 4.7 MB of XML) are fetched every six hours, not on every ten-minute refresh',async()=>{
+  let t=Date.parse('2026-11-18T10:00:00Z');const asked=[];
+  const fetchImpl=async(url)=>{asked.push(url);return {ok:true,json:async()=>url.includes('frame?')?{nav:[{id:'live',name:'Live',url:'https://openvibe.live/'}]}:{tools:[{id:'yaml',name:'YAML',docs:'https://openvibe.tools/tool/yaml'}],things:[{id:'a/b',name:'B',maker:'A',url:'https://example.com'}],items:[{full_name:'OpenVibers/Test',name:'Test',html_url:'https://github.com/OpenVibers/Test'}]},text:async()=>'<osm><node id="1"><tag k="shop" v="books"/><tag k="name" v="Books"/></node></osm>'};};
+  const store=createStore({fetchImpl,now:()=>new Date(t)});
+  const osm=()=>asked.filter((u)=>u===URLS.businesses).length;
+  await store.refresh();assert.equal(osm(),1);assert.equal(store.list('businesses').length,1);
+  t+=10*60*1000;await store.refresh();assert.equal(osm(),1,'not again ten minutes later');assert.equal(store.list('businesses').length,1,'the last good list stays');
+  assert.ok(asked.filter((u)=>u===URLS.sites).length===2,'the other sources still refresh');
+  t+=6*60*60*1000;await store.refresh();assert.equal(osm(),2,'again after six hours');
+});
+
 test('failed refresh retains the last successful source and reports stale status',async()=>{
   let fail=false;const fetchImpl=async(url)=>{if(fail)throw Error('source down');return {ok:true,json:async()=>url.includes('frame?')?{nav:[{id:'live',name:'Live',url:'https://openvibe.live/'}]}:{tools:[{id:'yaml',name:'YAML',docs:'https://openvibe.tools/tool/yaml'}],things:[{id:'a/b',name:'B',maker:'A',url:'https://example.com'}],items:[{full_name:'OpenVibers/Test',name:'Test',html_url:'https://github.com/OpenVibers/Test'}]},text:async()=>'<osm><node id="1"><tag k="shop" v="books"/><tag k="name" v="Books"/></node></osm>'};};
   const store=createStore({fetchImpl});await store.refresh();const before=store.list('sites');fail=true;await store.refresh();assert.deepEqual(store.list('sites'),before);assert.equal(store.state.status.sites.ok,false);
