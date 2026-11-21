@@ -4,6 +4,9 @@ const path=require('node:path');
 const {createStore,kinds}=require('./sources');
 const v=require('./views');
 const {createAuth,writeGuard}=require('./people');
+// Crawlers and AI agents (the same list as openvibe-shared seo.isCrawler, 4.333.0): ChatGPT-User, Google-Extended and
+// meta-externalagent carry no "bot" and were sent to silent sign-in (the network SEO pass, 11-21).
+const CRAWLER=/bot|crawl|spider|slurp|archiver|headless|preview|facebookexternalhit|embedly|gptbot|chatgpt-user|oai-searchbot|claude|anthropic|perplexity|ccbot|google-extended|applebot|amazonbot|meta-external|bytespider|youbot|cohere-ai|diffbot|yandex|baiduspider|petalbot|ahrefs|semrush/i;
 function createApp({store=createStore(),peopleStore=null,auth=createAuth()}={}){
   const app=express();app.disable('x-powered-by');
   // GET /metrics (loopback only: Prometheus on the host), the HTTP middleware first, process metrics and release_info.
@@ -35,7 +38,7 @@ function createApp({store=createStore(),peopleStore=null,auth=createAuth()}={}){
   app.get('/sitemap.xml',(_q,r)=>{const paths=['/',...Object.keys(kinds).map(k=>`/kinds/${k}`),...all().map(v.entryPath)];r.type('application/xml').send('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+paths.map(p=>`<url><loc>https://openvibe.directory${v.esc(p)}</loc></url>`).join('')+'</urlset>');});
   app.get('/',auth?auth.optionalAuth():(_q,_r,next)=>next(),(q,r)=>{
     r.set('Cache-Control','private, no-store');r.vary('Accept');r.vary('Cookie');
-    const browser=/\btext\/html\b/.test(q.get('accept')||'')&&!/bot|crawl|spider|slurp/i.test(q.get('user-agent')||'');
+    const browser=/\btext\/html\b/.test(q.get('accept')||'')&&!CRAWLER.test(q.get('user-agent')||'');
     const guest=/(?:^|;\s*)ov_sso_hint=guest(?:;|$)/.test(q.get('cookie')||'');
     if(auth&&!q.user&&browser&&!guest&&q.query.sso!=='none')return r.redirect(302,'/auth/login?silent=1');
     return r.send(v.page('Directories',v.home(kinds,counts(),all()),'/',[{'@context':'https://schema.org','@type':'WebSite',name:'OpenVibe.Directory',url:'https://openvibe.directory/',potentialAction:{'@type':'SearchAction',target:'https://openvibe.directory/search?q={search_term_string}','query-input':'required name=search_term_string'}}]));
