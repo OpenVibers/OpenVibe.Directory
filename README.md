@@ -12,5 +12,5 @@ The opt-in people table is created at startup through `DATABASE_DIRECT_URL` (own
 
 <!-- versions:start -->
 - openvibe-sdk: v0.191.0
-- openvibe-shared: v4.339.0
+- openvibe-shared: v4.342.0
 <!-- versions:end -->
