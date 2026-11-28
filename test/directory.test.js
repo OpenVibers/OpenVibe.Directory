@@ -79,3 +79,17 @@ test('home silently checks Network only for an unrecognized browser visitor',asy
     ]){r=await get(path,headers);assert.equal(r.status,200,JSON.stringify({path,headers}));}
   }finally{server.close();}
 });
+test('llms-full.txt holds each directory llms.txt lists, as words (11-28: it was a 404 to agents)',async()=>{
+  const store=createStore({fetchImpl:async()=>({ok:false,status:503})});store.start=()=>{};
+  store.state.entries.set('sites',[{kind:'sites',id:'x',slug:'x',name:'Example site',description:'A site that lists things',website:'https://example.com/',last_checked:'2026-11-10T00:00:00.000Z',sources:[{url:'https://example.com/',checked_at:'2026-11-10T00:00:00.000Z'}]}]);
+  const server=createApp({store}).listen(0,'127.0.0.1');
+  await new Promise(resolve=>server.once('listening',resolve));
+  try{
+    const base=`http://127.0.0.1:${server.address().port}`;
+    const r=await fetch(base+'/llms-full.txt');const text=await r.text();
+    assert.equal(r.status,200);
+    assert.ok(text.startsWith('# OpenVibe.Directory'));
+    assert.match(text,/\n## .+\n\nhttps:\/\/openvibe\.directory\/kinds\/sites\n/);
+    assert.ok(text.includes('Example site') && !/<(?:script|style|div|section)\b/i.test(text),'the entries as words, not markup');
+  }finally{server.close();}
+});
