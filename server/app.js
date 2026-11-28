@@ -35,6 +35,13 @@ function createApp({store=createStore(),peopleStore=null,auth=createAuth()}={}){
   app.get('/api/v1/entries/:kind/:slug',(q,r)=>{const e=find(q.params.kind,q.params.slug);return e?r.json(e):r.status(404).json({error:'entry.not_found'});});
   app.get('/robots.txt',(_q,r)=>r.type('text').send('User-agent: *\nAllow: /\nSitemap: https://openvibe.directory/sitemap.xml\n'));
   app.get('/llms.txt',(_q,r)=>r.type('text').send('# OpenVibe.Directory\n\nSource-linked listings with last checked dates.\n\n'+Object.entries(kinds).map(([id,name])=>`- [${name}](https://openvibe.directory/kinds/${id}): ${store.list(id).length} entries`).join('\n')+'\n\nJSON: https://openvibe.directory/api/v1/entries\n'));
+  // The full text for language models (SEO-33): each directory llms.txt lists, as Markdown from its own page (11-28:
+  // /llms-full.txt was a 404 to agents, tools/llms-check.js).
+  app.get('/llms-full.txt',(_q,r)=>{
+    const seo=require('openvibe-shared/seo'),twin=require('openvibe-shared/agent-layer').markdownTwin;
+    const sections=Object.entries(kinds).map(([id,name])=>({title:name,url:`/kinds/${id}`,body:twin({html:v.page(name,v.listing(id,name,store.list(id),'',{counts:counts(),kinds}),`/kinds/${id}`),canonical:`https://openvibe.directory/kinds/${id}`}).replace(/^---[\s\S]*?\n---\n/,'').trim()}));
+    r.type('text').set('Cache-Control','public, max-age=3600').send(seo.llmsFull({site:{name:'OpenVibe.Directory',url:'https://openvibe.directory'},summary:'Source-linked listings with last checked dates.',sections,maxBytes:900000}));
+  });
   app.get('/sitemap.xml',(_q,r)=>{const paths=['/',...Object.keys(kinds).map(k=>`/kinds/${k}`),...all().map(v.entryPath)];r.type('application/xml').send('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+paths.map(p=>`<url><loc>https://openvibe.directory${v.esc(p)}</loc></url>`).join('')+'</urlset>');});
   app.get('/',auth?auth.optionalAuth():(_q,_r,next)=>next(),(q,r)=>{
     r.set('Cache-Control','private, no-store');r.vary('Accept');r.vary('Cookie');
